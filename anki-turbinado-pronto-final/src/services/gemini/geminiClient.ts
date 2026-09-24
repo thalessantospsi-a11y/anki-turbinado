@@ -1,6 +1,5 @@
-const apiKey = (process.env.GEMINI_API_KEY || '').trim();
-
 export function isGeminiConfigured(): boolean {
+  const apiKey = (process.env.GEMINI_API_KEY || '').trim();
   return Boolean(apiKey && apiKey.length > 10 && apiKey !== 'sua-gemini-api-key-aqui');
 }
 
@@ -9,21 +8,24 @@ export async function callGeminiStructured<T>(
   userPrompt: string,
   modelName = 'gemini-flash-latest'
 ): Promise<T> {
-  if (!isGeminiConfigured()) {
+  const apiKey = (process.env.GEMINI_API_KEY || '').trim();
+
+  if (!apiKey || apiKey === 'sua-gemini-api-key-aqui') {
     throw new Error(
-      'GEMINI_API_KEY_NOT_CONFIGURED: A chave da API do Gemini não foi configurada na Vercel.'
+      'GEMINI_API_KEY_NOT_CONFIGURED: A chave da API do Gemini não foi configurada nas Variáveis de Ambiente da Vercel.'
     );
   }
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
+  // Suporta tanto o endpoint com o modelo flash-latest quanto 1.5-flash
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+
+  // Formato universal e compatível com 100% dos modelos Gemini
+  const combinedPrompt = `${systemPrompt}\n\nINSTRUÇÕES ADICIONAIS:\nResponda estritamente em formato JSON válido.\n\nCONTEÚDO:\n${userPrompt}`;
 
   const payload = {
-    system_instruction: {
-      parts: [{ text: systemPrompt }],
-    },
     contents: [
       {
-        parts: [{ text: userPrompt }],
+        parts: [{ text: combinedPrompt }],
       },
     ],
     generationConfig: {
@@ -50,7 +52,7 @@ export async function callGeminiStructured<T>(
   const data = await response.json();
   let text = (data.candidates?.[0]?.content?.parts?.[0]?.text || '{}').trim();
 
-  // Remove marcação markdown caso a IA retorne ```json ... ```
+  // Limpa marcações markdown se o modelo retornar ```json ... ```
   if (text.startsWith('```')) {
     text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
   }

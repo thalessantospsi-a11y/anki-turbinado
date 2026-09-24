@@ -114,8 +114,9 @@ export default function TeacherModePage() {
 
       setGeneratedFlashcards(res.cards || []);
       setIsCardsModalOpen(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao gerar cards do PDF:', err);
+      alert('Aviso da IA: ' + (err.message || 'Falha ao processar conteúdo com IA.'));
     } finally {
       setIsGeneratingPdfCards(false);
     }
