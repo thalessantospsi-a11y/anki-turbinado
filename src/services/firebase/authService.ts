@@ -124,7 +124,7 @@ export async function updateUserProfile(
   await updateDoc(userRef, cleanData({
     ...updates,
     updatedAt: new Date().toISOString(),
-  });
+  }));
 }
 
 export function subscribeToAuthState(callback: (user: FirebaseUser | null) => void) {
