@@ -1,3 +1,6 @@
+function cleanData<T>(data: T): any {
+  return JSON.parse(JSON.stringify(data));
+}
 import {
   GoogleAuthProvider,
   signInWithPopup,
@@ -105,7 +108,7 @@ export async function syncUserProfile(
       updatedAt: nowIso,
     };
 
-    await setDoc(userRef, initialProfile);
+    await setDoc(userRef, cleanData(initialProfile));
     return initialProfile;
   }
 
@@ -118,7 +121,7 @@ export async function updateUserProfile(
   updates: Partial<UserProfile>
 ): Promise<void> {
   const userRef = doc(db, 'users', uid);
-  await updateDoc(userRef, {
+  await updateDoc(userRef, cleanData({
     ...updates,
     updatedAt: new Date().toISOString(),
   });

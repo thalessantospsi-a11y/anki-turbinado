@@ -91,7 +91,7 @@ export const UserProfileSchema = z.object({
   id: stringRequired(),
   email: z.string().email(),
   displayName: z.string().min(1),
-  photoURL: z.string().url().optional(),
+  photoURL: z.string().optional().nullable(),
   targetExam: z.string().optional(),
   targetRole: z.string().optional(),
   goals: UserGoalsSchema,

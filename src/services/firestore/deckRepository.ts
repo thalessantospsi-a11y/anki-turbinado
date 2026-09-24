@@ -8,7 +8,6 @@ import {
   deleteDoc,
   query,
   where,
-  orderBy,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { Deck, DeckSchema, IDeckRepository } from '@/types';
@@ -57,13 +56,17 @@ export class DeckRepository implements IDeckRepository {
   ): Promise<Deck[]> {
     const q = query(
       collection(db, this.collectionName),
-      where('ownerId', '==', ownerId),
-      where('isArchived', '==', options?.isArchived ?? false),
-      orderBy('updatedAt', 'desc')
+      where('ownerId', '==', ownerId)
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((docSnap) => DeckSchema.parse(docSnap.data()));
+    let decks = snapshot.docs.map((docSnap) => DeckSchema.parse(docSnap.data()));
+
+    const targetArchived = options?.isArchived ?? false;
+    decks = decks.filter((d) => (d.isArchived ?? false) === targetArchived);
+
+    decks.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    return decks;
   }
 
   async update(id: string, updates: Partial<Deck>): Promise<void> {

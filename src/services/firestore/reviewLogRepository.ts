@@ -5,11 +5,13 @@ import {
   setDoc,
   query,
   where,
-  orderBy,
-  limit as firestoreLimit,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { ReviewLog, ReviewLogSchema, IReviewLogRepository } from '@/types';
+
+function cleanData<T>(data: T): any {
+  return JSON.parse(JSON.stringify(data));
+}
 
 export class ReviewLogRepository implements IReviewLogRepository {
   private collectionName = 'reviews';
@@ -22,20 +24,21 @@ export class ReviewLogRepository implements IReviewLogRepository {
     };
 
     const validated = ReviewLogSchema.parse(newLog);
-    await setDoc(docRef, validated);
+    await setDoc(docRef, cleanData(validated));
     return validated;
   }
 
   async listRecentReviews(ownerId: string, maxLimit = 100): Promise<ReviewLog[]> {
     const q = query(
       collection(db, this.collectionName),
-      where('ownerId', '==', ownerId),
-      orderBy('reviewTimestamp', 'desc'),
-      firestoreLimit(maxLimit)
+      where('ownerId', '==', ownerId)
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => ReviewLogSchema.parse(d.data()));
+    return snapshot.docs
+      .map((d) => ReviewLogSchema.parse(d.data()))
+      .sort((a, b) => new Date(b.reviewTimestamp).getTime() - new Date(a.reviewTimestamp).getTime())
+      .slice(0, maxLimit);
   }
 
   async listReviewsByDateRange(
@@ -45,14 +48,14 @@ export class ReviewLogRepository implements IReviewLogRepository {
   ): Promise<ReviewLog[]> {
     const q = query(
       collection(db, this.collectionName),
-      where('ownerId', '==', ownerId),
-      where('reviewTimestamp', '>=', startDateIso),
-      where('reviewTimestamp', '<=', endDateIso),
-      orderBy('reviewTimestamp', 'asc')
+      where('ownerId', '==', ownerId)
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => ReviewLogSchema.parse(d.data()));
+    return snapshot.docs
+      .map((d) => ReviewLogSchema.parse(d.data()))
+      .filter((d) => d.reviewTimestamp >= startDateIso && d.reviewTimestamp <= endDateIso)
+      .sort((a, b) => new Date(a.reviewTimestamp).getTime() - new Date(b.reviewTimestamp).getTime());
   }
 
   async countReviewsToday(ownerId: string): Promise<number> {
@@ -62,12 +65,13 @@ export class ReviewLogRepository implements IReviewLogRepository {
 
     const q = query(
       collection(db, this.collectionName),
-      where('ownerId', '==', ownerId),
-      where('reviewTimestamp', '>=', startIso)
+      where('ownerId', '==', ownerId)
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.size;
+    return snapshot.docs
+      .map((d) => ReviewLogSchema.parse(d.data()))
+      .filter((d) => d.reviewTimestamp >= startIso).length;
   }
 }
 

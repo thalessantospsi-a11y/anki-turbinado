@@ -9,8 +9,6 @@ import {
   writeBatch,
   query,
   where,
-  orderBy,
-  limit as firestoreLimit,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { Card, CardSchema, ICardRepository } from '@/types';
@@ -78,100 +76,83 @@ export class CardRepository implements ICardRepository {
   }
 
   async listDueCards(ownerId: string, maxItems = 100, deckId?: string): Promise<Card[]> {
-    const nowIso = new Date().toISOString();
-    let q;
-
-    if (deckId) {
-      q = query(
-        collection(db, this.collectionName),
-        where('deckId', '==', deckId),
-        where('metadata.isArchived', '==', false),
-        where('metadata.isSuspended', '==', false),
-        where('fsrs.due', '<=', nowIso),
-        orderBy('fsrs.due', 'asc'),
-        firestoreLimit(maxItems)
-      );
-    } else {
-      q = query(
-        collection(db, this.collectionName),
-        where('ownerId', '==', ownerId),
-        where('metadata.isArchived', '==', false),
-        where('metadata.isSuspended', '==', false),
-        where('fsrs.due', '<=', nowIso),
-        orderBy('fsrs.due', 'asc'),
-        firestoreLimit(maxItems)
-      );
-    }
+    const now = new Date();
+    const q = deckId
+      ? query(collection(db, this.collectionName), where('deckId', '==', deckId))
+      : query(collection(db, this.collectionName), where('ownerId', '==', ownerId));
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => CardSchema.parse(d.data()));
+    const allCards = snapshot.docs.map((d) => CardSchema.parse(d.data()));
+
+    return allCards
+      .filter((c) => {
+        if (c.metadata.isArchived || c.metadata.isSuspended) return false;
+        return new Date(c.fsrs.due) <= now;
+      })
+      .sort((a, b) => new Date(a.fsrs.due).getTime() - new Date(b.fsrs.due).getTime())
+      .slice(0, maxItems);
   }
 
   async listNewCards(ownerId: string, maxItems = 20, deckId?: string): Promise<Card[]> {
-    let q;
-    if (deckId) {
-      q = query(
-        collection(db, this.collectionName),
-        where('deckId', '==', deckId),
-        where('metadata.isArchived', '==', false),
-        where('metadata.isSuspended', '==', false),
-        where('fsrs.state', '==', 0),
-        orderBy('createdAt', 'asc'),
-        firestoreLimit(maxItems)
-      );
-    } else {
-      q = query(
-        collection(db, this.collectionName),
-        where('ownerId', '==', ownerId),
-        where('metadata.isArchived', '==', false),
-        where('metadata.isSuspended', '==', false),
-        where('fsrs.state', '==', 0),
-        orderBy('createdAt', 'asc'),
-        firestoreLimit(maxItems)
-      );
-    }
+    const q = deckId
+      ? query(collection(db, this.collectionName), where('deckId', '==', deckId))
+      : query(collection(db, this.collectionName), where('ownerId', '==', ownerId));
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => CardSchema.parse(d.data()));
+    const allCards = snapshot.docs.map((d) => CardSchema.parse(d.data()));
+
+    return allCards
+      .filter((c) => {
+        if (c.metadata.isArchived || c.metadata.isSuspended) return false;
+        return c.fsrs.state === 0;
+      })
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+      .slice(0, maxItems);
   }
 
   async listByDeck(deckId: string): Promise<Card[]> {
     const q = query(
       collection(db, this.collectionName),
-      where('deckId', '==', deckId),
-      where('metadata.isArchived', '==', false),
-      orderBy('createdAt', 'desc')
+      where('deckId', '==', deckId)
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => CardSchema.parse(d.data()));
+    const allCards = snapshot.docs.map((d) => CardSchema.parse(d.data()));
+
+    return allCards
+      .filter((c) => !c.metadata.isArchived)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
   async listByFilter(ownerId: string, filters: CardFilterOptions): Promise<Card[]> {
-    let q = query(
+    const q = query(
       collection(db, this.collectionName),
-      where('ownerId', '==', ownerId),
-      where('metadata.isArchived', '==', filters.isArchived ?? false)
+      where('ownerId', '==', ownerId)
     );
-
-    if (filters.isSuspended !== undefined) {
-      q = query(q, where('metadata.isSuspended', '==', filters.isSuspended));
-    }
-    if (filters.disciplina) {
-      q = query(q, where('metadata.disciplina', '==', filters.disciplina));
-    }
-    if (filters.assunto) {
-      q = query(q, where('metadata.assunto', '==', filters.assunto));
-    }
-    if (filters.banca) {
-      q = query(q, where('metadata.banca', '==', filters.banca));
-    }
-    if (filters.concurso) {
-      q = query(q, where('metadata.concurso', '==', filters.concurso));
-    }
 
     const snapshot = await getDocs(q);
     let results = snapshot.docs.map((d) => CardSchema.parse(d.data()));
 
+    if (filters.isArchived !== undefined) {
+      results = results.filter((c) => (c.metadata.isArchived ?? false) === filters.isArchived);
+    } else {
+      results = results.filter((c) => !c.metadata.isArchived);
+    }
+
+    if (filters.isSuspended !== undefined) {
+      results = results.filter((c) => c.metadata.isSuspended === filters.isSuspended);
+    }
+    if (filters.disciplina) {
+      results = results.filter((c) => c.metadata.disciplina === filters.disciplina);
+    }
+    if (filters.assunto) {
+      results = results.filter((c) => c.metadata.assunto === filters.assunto);
+    }
+    if (filters.banca) {
+      results = results.filter((c) => c.metadata.banca === filters.banca);
+    }
+    if (filters.concurso) {
+      results = results.filter((c) => c.metadata.concurso === filters.concurso);
+    }
     if (filters.tag) {
       results = results.filter((c) => c.metadata.tags.includes(filters.tag!));
     }
@@ -184,7 +165,7 @@ export class CardRepository implements ICardRepository {
     await updateDoc(docRef, cleanData({
       ...updates,
       updatedAt: new Date().toISOString(),
-    });
+    }));
   }
 
   async delete(id: string): Promise<void> {
