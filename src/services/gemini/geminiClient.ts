@@ -7,15 +7,15 @@ export function isGeminiConfigured(): boolean {
 export async function callGeminiStructured<T>(
   systemPrompt: string,
   userPrompt: string,
-  modelName = 'gemini-1.5-flash'
+  modelName = 'gemini-flash-latest'
 ): Promise<T> {
   if (!isGeminiConfigured()) {
     throw new Error(
-      'GEMINI_API_KEY_NOT_CONFIGURED: A chave da API do Gemini não foi configurada em .env.local ou na Vercel.'
+      'GEMINI_API_KEY_NOT_CONFIGURED: A chave da API do Gemini não foi configurada na Vercel.'
     );
   }
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
   const payload = {
     system_instruction: {
@@ -36,6 +36,7 @@ export async function callGeminiStructured<T>(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'X-goog-api-key': apiKey.trim(),
     },
     body: JSON.stringify(payload),
   });
