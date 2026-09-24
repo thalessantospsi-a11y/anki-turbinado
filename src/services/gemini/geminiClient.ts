@@ -1,4 +1,4 @@
-const apiKey = process.env.GEMINI_API_KEY || '';
+const apiKey = (process.env.GEMINI_API_KEY || '').trim();
 
 export function isGeminiConfigured(): boolean {
   return Boolean(apiKey && apiKey.length > 10 && apiKey !== 'sua-gemini-api-key-aqui');
@@ -7,15 +7,15 @@ export function isGeminiConfigured(): boolean {
 export async function callGeminiStructured<T>(
   systemPrompt: string,
   userPrompt: string,
-  modelName = 'gemini-1.5-flash'
+  modelName = 'gemini-flash-latest'
 ): Promise<T> {
   if (!isGeminiConfigured()) {
     throw new Error(
-      'GEMINI_API_KEY_NOT_CONFIGURED: A chave da API do Gemini não foi configurada em .env.local ou na Vercel.'
+      'GEMINI_API_KEY_NOT_CONFIGURED: A chave da API do Gemini não foi configurada na Vercel.'
     );
   }
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
   const payload = {
     system_instruction: {
@@ -36,6 +36,7 @@ export async function callGeminiStructured<T>(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'X-goog-api-key': apiKey,
     },
     body: JSON.stringify(payload),
   });
@@ -47,8 +48,12 @@ export async function callGeminiStructured<T>(
   }
 
   const data = await response.json();
-  const text =
-    data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+  let text = (data.candidates?.[0]?.content?.parts?.[0]?.text || '{}').trim();
+
+  // Remove marcação markdown caso a IA retorne ```json ... ```
+  if (text.startsWith('```')) {
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  }
 
   try {
     return JSON.parse(text) as T;

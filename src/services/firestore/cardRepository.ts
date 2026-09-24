@@ -15,6 +15,10 @@ import {
 import { db } from '../firebase/config';
 import { Card, CardSchema, ICardRepository } from '@/types';
 
+function cleanData<T>(data: T): any {
+  return JSON.parse(JSON.stringify(data));
+}
+
 export interface CardFilterOptions {
   disciplina?: string;
   assunto?: string;
@@ -40,7 +44,7 @@ export class CardRepository implements ICardRepository {
     };
 
     const validated = CardSchema.parse(newCard);
-    await setDoc(cardRef, validated);
+    await setDoc(cardRef, cleanData(validated));
     return validated;
   }
 
@@ -58,7 +62,7 @@ export class CardRepository implements ICardRepository {
         updatedAt: nowIso,
       };
       const validated = CardSchema.parse(card);
-      batch.set(cardRef, validated);
+      batch.set(cardRef, cleanData(validated));
       createdCards.push(validated);
     }
 
@@ -177,7 +181,7 @@ export class CardRepository implements ICardRepository {
 
   async update(id: string, updates: Partial<Card>): Promise<void> {
     const docRef = doc(db, this.collectionName, id);
-    await updateDoc(docRef, {
+    await updateDoc(docRef, cleanData({
       ...updates,
       updatedAt: new Date().toISOString(),
     });

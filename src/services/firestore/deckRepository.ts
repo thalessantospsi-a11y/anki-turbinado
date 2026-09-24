@@ -13,6 +13,10 @@ import {
 import { db } from '../firebase/config';
 import { Deck, DeckSchema, IDeckRepository } from '@/types';
 
+function cleanData<T>(data: T): any {
+  return JSON.parse(JSON.stringify(data));
+}
+
 export class DeckRepository implements IDeckRepository {
   private collectionName = 'decks';
 
@@ -36,7 +40,7 @@ export class DeckRepository implements IDeckRepository {
     };
 
     const validated = DeckSchema.parse(newDeck);
-    await setDoc(deckRef, validated);
+    await setDoc(deckRef, cleanData(validated));
     return validated;
   }
 
@@ -64,10 +68,10 @@ export class DeckRepository implements IDeckRepository {
 
   async update(id: string, updates: Partial<Deck>): Promise<void> {
     const docRef = doc(db, this.collectionName, id);
-    await updateDoc(docRef, {
+    await updateDoc(docRef, cleanData({
       ...updates,
       updatedAt: new Date().toISOString(),
-    });
+    }));
   }
 
   async delete(id: string): Promise<void> {
