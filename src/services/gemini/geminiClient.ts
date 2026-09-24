@@ -6,7 +6,7 @@ export function isGeminiConfigured(): boolean {
 export async function callGeminiStructured<T>(
   systemPrompt: string,
   userPrompt: string,
-  modelName = 'gemini-flash-latest'
+  modelName = 'gemini-1.5-flash'
 ): Promise<T> {
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
 
