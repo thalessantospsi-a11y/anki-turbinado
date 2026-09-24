@@ -184,7 +184,7 @@ export class CardRepository implements ICardRepository {
     await updateDoc(docRef, cleanData({
       ...updates,
       updatedAt: new Date().toISOString(),
-    });
+    }));
   }
 
   async delete(id: string): Promise<void> {
